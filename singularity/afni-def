@@ -1,0 +1,142 @@
+Bootstrap: docker
+From: ubuntu:xenial-20200514
+
+%help
+Singularity container with:
+    AFNI v20.2.08
+
+
+%setup
+
+%files
+./src/startup.sh /
+./src/readme /
+./src/version / 
+
+%environment
+export LC_ALL=en_US.UTF-8
+export LANG=en_US.UTF-8
+export LANGUAGE=en_US.UTF-8
+
+export PATH=/opt/bin:$PATH
+
+export LD_LIBRARY_PATH=/.singularity.d/libs:/usr/lib:$LD_LIBRARY_PATH
+
+export PATH=/opt/afni/src/linux_ubuntu_16_64_glw_local_shared:$PATH
+
+%runscript
+cd /opt/data
+exec /opt/bin/startup.sh "$@"
+
+%test
+
+%post
+mkdir -p /xdisk /opt/data /opt/bin /opt/work /opt/input /opt/output /opt/config
+
+export DEBIAN_FRONTEND=noninteractive
+export TZ=America/Phoenix
+ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
+
+apt-get update
+
+apt-get install -y \
+locales 
+
+echo "LC_ALL=en_US.UTF-8" >> /etc/environment
+echo "en_US.UTF-8 UTF-8" >> /etc/locale.gen
+echo "LANG=en_US.UTF-8" > /etc/locale.conf
+locale-gen en_US.UTF-8
+export LC_ALL=en_US.UTF-8
+
+apt-get install -y \
+	nano \
+	apt-utils \
+	wget \
+	curl \
+    dc \
+	lsb-core \
+    unzip \
+    git
+
+mkdir -p /opt/tmp
+
+apt-get install -y tcsh 
+
+#miniconda
+cd /opt/tmp        
+wget https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh
+chmod +x Miniconda3-latest-Linux-x86_64.sh
+/bin/bash ./Miniconda3-latest-Linux-x86_64.sh -b -p /opt/miniconda -f
+PATH=/opt/miniconda/bin:$PATH
+conda install -y pip
+
+
+conda install -y -c conda-forge numpy
+conda install -y  numpy-devel
+conda install -y -c conda-forge scipy
+conda install -y -c conda-forge nibabel
+
+# Reference https://gist.github.com/mGalarnyk/41c887e921e712baf86fecc507b3afc7
+apt-get install -y software-properties-common
+apt-get install -y apt-transport-https ca-certificates
+apt-key adv --keyserver keyserver.ubuntu.com --recv-keys E084DAB9
+# also required this key - https://chrisjean.com/fix-apt-get-update-the-following-signatures-couldnt-be-verified-because-the-public-key-is-not-available/
+apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 51716619E084DAB9
+add-apt-repository 'deb https://cloud.r-project.org/bin/linux/ubuntu xenial-cran35/'
+apt-get update
+apt-get install -y r-base
+
+# afni compilation
+add-apt-repository universe
+apt-get update && apt-get install -y \
+        tcsh \
+        xfonts-base \
+        python-qt4 \
+        gsl-bin \
+        gnome-tweak-tool \
+        libjpeg62 \
+        xvfb \
+        xterm \
+        vim \
+        libglu1-mesa-dev \
+        libglw1-mesa-dev  \
+        libxm4
+
+
+export HOMEBACK=$HOME
+export HOME=/opt
+cd /opt
+
+git clone https://github.com/afni/afni.git
+cd /opt/afni
+git checkout -f tags/AFNI_20.2.09
+cp /opt/afni/src/other_builds/Makefile.linux_ubuntu_16_64_glw_local_shared /opt/afni/src/Makefile
+
+apt-get update
+apt-get install -y libxmu-dev libxt-dev libmotif-dev
+apt-get install -y libxpm-dev libxi-dev libxmhtml-dev
+apt-get install -y libglib2.0-dev libgsl-dev
+apt-get install -y m4 freeglut3-dev
+
+
+mv /usr/include/GL/GLwDrawA.h /usr/include/GL/GLwDrawA.h.orig
+sed 's/^GLAPI WidgetClass/extern GLAPI WidgetClass/' \
+         /usr/include/GL/GLwDrawA.h.orig > ~/tmp_GLwDrawA.h
+mv ~/tmp_GLwDrawA.h /usr/include/GL/GLwDrawA
+
+cd /opt/afni/src
+make vastness
+
+export HOME=$HOMEBACK
+conda install -y -c conda-forge matplotlib
+export PATH=/opt/afni/src/linux_ubuntu_16_64_glw_local_shared:$PATH
+rPkgsInstall -pkgs ALL
+
+rm -rf /opt/tmp
+
+chmod -R 777 /opt
+
+mv /startup.sh /opt/bin
+mv /readme /opt/bin
+mv /version /opt/bin
+
