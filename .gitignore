@@ -1,3 +1,11 @@
+#singularity files
+*.simg
+*.sif
+
+#build files
+*.bpy
+*.bsh
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
