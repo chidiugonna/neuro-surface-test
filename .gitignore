@@ -5,6 +5,7 @@
 #build files
 *.bpy
 *.bsh
+*.token
 
 #log files
 *.log
